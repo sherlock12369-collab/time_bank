@@ -186,9 +186,11 @@ async function api(req, res, pathname) {
   // 타이머: 선불. 시작할 때 정한 시간만큼 먼저 빠지고, 일찍 끄면 남은 시간을 돌려받는다.
   if (pathname === '/api/timer/start') {
     if (data.active) return send(res, 409, { error: '이미 사용 중이에요.' });
-    const { minutes } = await readBody(req);
-    const duration = Math.round(Number(minutes) * 60);
-    if (!Number.isFinite(duration) || duration < 60 || duration > 24 * 3600) return send(res, 400, { error: '1분 이상으로 정해 주세요.' });
+    const body = await readBody(req);
+    // 초 단위 (예전 화면의 minutes도 받음)
+    const duration = Math.round(body.seconds !== undefined ? Number(body.seconds) : Number(body.minutes) * 60);
+    if (!Number.isFinite(duration) || duration < 1) return send(res, 400, { error: '시간을 1초 이상으로 정해 주세요.' });
+    if (duration > 24 * 3600) return send(res, 400, { error: '24시간보다 길게 정할 수 없어요.' });
     if (duration > balance) return send(res, 400, { error: `남은 시간(${fmtDuration(Math.max(0, balance))})보다 길게 정할 수 없어요.` });
     addEntry(-duration, `타이머 ${fmtDuration(duration)} (선불)`, now);
     data.active = { mode: 'timer', startedAt: now, duration };

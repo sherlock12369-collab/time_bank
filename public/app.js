@@ -192,18 +192,27 @@
   });
 
   // 타이머 빠른 선택
-  for (const m of [15, 30, 60, 90, 120]) {
+  for (const m of [1, 5, 15, 30, 60, 90, 120]) {
     const b = document.createElement('button');
-    b.textContent = m >= 60 ? `${m / 60}시간${m % 60 ? ' 반' : ''}` : `${m}분`;
+    b.textContent = human(m * 60);
     b.onclick = () => {
-      $('#tm-min').value = m;
+      $('#tm-h').value = Math.floor(m / 60);
+      $('#tm-m').value = m % 60;
+      $('#tm-s').value = 0;
       document.querySelectorAll('#chips button').forEach((x) => x.classList.toggle('on', x === b));
     };
     $('#chips').appendChild(b);
   }
+  // 직접 고치면 빠른 선택 표시를 지운다
+  for (const id of ['#tm-h', '#tm-m', '#tm-s']) {
+    $(id).addEventListener('input', () => document.querySelectorAll('#chips button').forEach((x) => x.classList.remove('on')));
+  }
 
   $('#sw-start').onclick = () => act('/api/stopwatch/start');
-  $('#tm-start').onclick = () => act('/api/timer/start', { minutes: Number($('#tm-min').value) });
+  $('#tm-start').onclick = () => {
+    const v = (id) => Math.max(0, Math.floor(Number($(id).value) || 0));
+    act('/api/timer/start', { seconds: v('#tm-h') * 3600 + v('#tm-m') * 60 + v('#tm-s') });
+  };
   $('#stop').onclick = () => {
     if (!st || !st.active) return;
     act(st.active.mode === 'stopwatch' ? '/api/stopwatch/stop' : '/api/timer/stop');
