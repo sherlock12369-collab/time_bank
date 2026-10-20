@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>타임뱅크</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <meta name="theme-color" content="#7c5cff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="타임뱅크">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- 로그인: 비밀번호만 -->
+  <main id="login" class="screen" hidden>
+    <div class="card login-card">
+      <div class="logo">⏳</div>
+      <h1>타임뱅크</h1>
+      <p class="muted"><b id="login-name"></b>님, 비밀번호를 눌러 주세요</p>
+      <div class="dots" id="dots"></div>
+      <p class="error" id="login-error" hidden></p>
+      <div class="keypad" id="keypad"></div>
+    </div>
+  </main>
+
+  <!-- 메인 -->
+  <main id="app" class="screen" hidden>
+    <header class="top">
+      <div><span class="hello"><b id="app-name"></b>님의 타임뱅크</span></div>
+      <button class="btn ghost small" id="logout">나가기</button>
+    </header>
+
+    <section class="card balance-card">
+      <div class="label">남은 놀이 시간</div>
+      <div class="balance" id="balance">-</div>
+      <div class="muted small" id="next-grant"></div>
+    </section>
+
+    <section class="card" id="active-card" hidden>
+      <div class="label" id="active-label"></div>
+      <div class="big-clock" id="active-clock">00:00:00</div>
+      <div class="muted small" id="active-sub"></div>
+      <button class="btn danger wide" id="stop">멈추기</button>
+    </section>
+
+    <section class="card" id="start-card">
+      <div class="tabs">
+        <button class="tab active" data-mode="stopwatch">스톱워치 <small>후불</small></button>
+        <button class="tab" data-mode="timer">타이머 <small>선불</small></button>
+      </div>
+      <div id="mode-stopwatch">
+        <p class="muted small">먼저 놀고, 멈출 때 쓴 시간만큼 빠져요.</p>
+        <button class="btn primary wide" id="sw-start">스톱워치 시작</button>
+      </div>
+      <div id="mode-timer" hidden>
+        <p class="muted small">정한 시간만큼 먼저 빠지고, 일찍 끝내면 남은 시간을 돌려받아요.</p>
+        <div class="chips" id="chips"></div>
+        <div class="row">
+          <input type="number" id="tm-min" min="1" step="1" value="30" inputmode="numeric"><span>분</span>
+          <button class="btn primary" id="tm-start">타이머 시작</button>
+        </div>
+      </div>
+      <p class="error" id="start-error" hidden></p>
+    </section>
+
+    <section class="card">
+      <div class="label">기록</div>
+      <ul class="ledger" id="ledger"></ul>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

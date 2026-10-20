@@ -1,0 +1,13 @@
+{
+  "name": "time-bank",
+  "version": "1.0.0",
+  "private": true,
+  "description": "타임뱅크 — 놀이 시간 통장 (로컬 서버)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
