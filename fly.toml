@@ -1,0 +1,26 @@
+# 타임뱅크 — Fly.io 설정
+# 처음 한 번: flyctl apps create <앱이름> && flyctl volumes create tb_data --region nrt --size 1
+# 배포: flyctl deploy
+app = "time-bank-juwon"
+primary_region = "nrt"
+
+[env]
+  TZ = "Asia/Seoul"
+  DATA_DIR = "/data"
+  SECURE_COOKIE = "1"
+
+[mounts]
+  source = "tb_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

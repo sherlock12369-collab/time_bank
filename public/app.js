@@ -21,15 +21,21 @@
   } catch (_) { /* 저장소 없음 */ }
 
   // ---------- 공통 ----------
-  async function call(path, body) {
+  // 서버 버전은 fetch, 사이트(GitHub Pages) 버전은 이 기기 저장소(local-api.js)
+  async function request(path, body) {
+    if (window.TB_LOCAL) return window.TB_LOCAL(path, body);
     const res = await fetch(path, {
       method: body === undefined ? 'GET' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 401 && path !== '/api/login' && /로그인/.test(data.error || '')) showLogin();
-    if (!res.ok) throw new Error(data.error || '오류가 났어요.');
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  }
+
+  async function call(path, body) {
+    const { ok, status, data } = await request(path, body);
+    if (status === 401 && path !== '/api/login' && /로그인/.test(data.error || '')) showLogin();
+    if (!ok) throw new Error(data.error || '오류가 났어요.');
     return data;
   }
 
