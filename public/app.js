@@ -36,7 +36,7 @@
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
     const s = sec % 60;
-    let t = h ? `${h}시간 ${m}분` : m ? `${m}분 ${s}초` : `${s}초`;
+    let t = h ? `${h}시간${m ? ` ${m}분` : ""}` : m ? `${m}분${s ? ` ${s}초` : ""}` : `${s}초`;
     return (neg ? '-' : '') + t;
   }
   const now = () => Date.now() + offset;
