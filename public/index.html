@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-mode="system" data-accent="purple">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,7 +18,7 @@
     <div class="card login-card">
       <div class="logo">⏳</div>
       <h1>타임뱅크</h1>
-      <p class="muted"><b id="login-name"></b>님, 비밀번호를 눌러 주세요</p>
+      <p class="muted"><b class="who-name"></b>님, 비밀번호를 눌러 주세요</p>
       <div class="dots" id="dots"></div>
       <p class="error" id="login-error" hidden></p>
       <div class="keypad" id="keypad"></div>
@@ -28,14 +28,19 @@
   <!-- 메인 -->
   <main id="app" class="screen" hidden>
     <header class="top">
-      <div><span class="hello"><b id="app-name"></b>님의 타임뱅크</span></div>
-      <button class="btn ghost small" id="logout">나가기</button>
+      <span class="hello"><b class="who-name"></b>님의 타임뱅크</span>
+      <div class="top-btns">
+        <button class="icon-btn" id="btn-reports" title="주간 성적표">📊</button>
+        <button class="icon-btn" id="btn-settings" title="테마">⚙</button>
+        <button class="btn ghost small" id="logout">나가기</button>
+      </div>
     </header>
 
     <section class="card balance-card">
       <div class="label">남은 놀이 시간</div>
       <div class="balance" id="balance">-</div>
       <div class="muted small" id="next-grant"></div>
+      <div class="interest" id="interest" hidden></div>
     </section>
 
     <section class="card" id="active-card" hidden>
@@ -67,11 +72,31 @@
       <p class="error" id="start-error" hidden></p>
     </section>
 
+    <section class="card sister-card">
+      <div class="label">누나 타임 👧</div>
+      <div class="sister-btns">
+        <button class="btn" id="sis-gift">🎁 시간 선물<small>잔액에 더하기</small></button>
+        <button class="btn" id="sis-together">🎮 같이 놀기<small>노는 동안 무료</small></button>
+      </div>
+      <div class="muted small" id="sis-limit"></div>
+    </section>
+
+    <section class="card">
+      <div class="label">최근 7일 사용</div>
+      <div class="chart" id="chart"></div>
+      <div class="stat-row" id="stat-row"></div>
+    </section>
+
     <section class="card">
       <div class="label">기록</div>
       <ul class="ledger" id="ledger"></ul>
     </section>
   </main>
+
+  <!-- 모달 -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card" id="modal-card"></div>
+  </div>
 
   <script src="/app.js"></script>
 </body>
