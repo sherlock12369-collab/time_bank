@@ -96,26 +96,26 @@ work.width=160;work.height=120;
 let stream=null,facing="environment",mode="";
 let tracking=false,target=null,zone=null,drag=null;
 let lastPoint=null,lastInside=false,framesInside=0;
-let B=0,S=0,O=0,inning=1,top=true;
+let B=0,S=0,O=0,inning=1,isTop=true;
 let scores=[0,0],runners=[false,false,false];
-let history=[],cooldown=0,looping=false;
+let hist=[],cooldown=0,looping=false;
 
 function status(t){document.getElementById("status").textContent=t}
 function message(t){document.getElementById("result").textContent=t}
 function save(){
- history.push(JSON.stringify({B,S,O,inning,top,scores,runners}));
- if(history.length>30)history.shift();
+ hist.push(JSON.stringify({B,S,O,inning,isTop,scores,runners}));
+ if(hist.length>30)hist.shift();
 }
 function undo(){
- if(!history.length)return;
- const h=JSON.parse(history.pop());
- B=h.B;S=h.S;O=h.O;inning=h.inning;top=h.top;scores=h.scores;runners=h.runners;
+ if(!hist.length)return;
+ const h=JSON.parse(hist.pop());
+ B=h.B;S=h.S;O=h.O;inning=h.inning;isTop=h.isTop;scores=h.scores;runners=h.runners;
  update();message("이전 판정 취소!");
 }
 function update(){
  document.getElementById("away").textContent=scores[0];
  document.getElementById("home").textContent=scores[1];
- document.getElementById("inning").textContent=inning+"회 "+(top?"초":"말");
+ document.getElementById("inning").textContent=inning+"회 "+(isTop?"초":"말");
  document.getElementById("count").textContent=`B${B} S${S} O${O}`;
  document.getElementById("bases").textContent=
   runners.map((x,i)=>(x?"◆":"◇")+(i+1)+"루").join("　");
@@ -124,7 +124,7 @@ function resetCount(){B=0;S=0}
 function changeSide(){
  if(O<3)return;
  O=0;resetCount();runners=[false,false,false];
- if(top)top=false;else{top=true;inning++}
+ if(isTop)isTop=false;else{isTop=true;inning++}
  message("공수 교대!");
 }
 function strike(){
@@ -145,7 +145,7 @@ function ball(){
  update();
 }
 function walk(){
- if(runners[0]&&runners[1]&&runners[2])scores[top?0:1]++;
+ if(runners[0]&&runners[1]&&runners[2])scores[isTop?0:1]++;
  if(runners[0]&&runners[1])runners[2]=true;
  if(runners[0])runners[1]=true;
  runners[0]=true;
@@ -165,7 +165,7 @@ function hit(n){
  }
  if(n===4)runs++;
  else next[n-1]=true;
- scores[top?0:1]+=runs;
+ scores[isTop?0:1]+=runs;
  runners=next;resetCount();
  message(n===4?"홈런! 🎉":n+"루타! "+(runs?runs+"점 득점!":""));
  update();
@@ -183,21 +183,43 @@ function doorGrounder(){
  }else{out();message("방문 땅볼 → 땅볼 아웃!")}
 }
 
+function cameraError(e){
+ const n=e&&e.name;
+ if(n==="NotAllowedError"||n==="SecurityError")
+  return "카메라 권한이 막혀 있어. 주소창 옆 🔒(또는 aA) → 카메라 → 허용으로 바꾸고 새로고침해.";
+ if(n==="NotFoundError"||n==="OverconstrainedError")
+  return "카메라를 찾지 못했어. 카메라가 있는 기기(폰)에서 열어 줘.";
+ if(n==="NotReadableError"||n==="AbortError")
+  return "다른 앱이 카메라를 쓰는 중이야. 카메라 앱이나 영상통화를 끄고 다시 눌러.";
+ return "카메라 오류("+(n||"?")+"): "+(e&&e.message||e);
+}
 async function startCamera(){
+ if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+  status("이 브라우저에서는 카메라를 쓸 수 없어. 카톡 등 앱 안에서 열었다면 오른쪽 위 ⋮ → '다른 브라우저로 열기'(Safari/Chrome)로 열어 줘.");
+  return;
+ }
+ status("카메라 켜는 중… 권한을 물어보면 '허용'을 눌러.");
  try{
   if(stream)stream.getTracks().forEach(t=>t.stop());
-  stream=await navigator.mediaDevices.getUserMedia({
-   audio:false,video:{facingMode:{ideal:facing},width:{ideal:640},height:{ideal:480}}
-  });
+  stream=null;
+  try{
+   stream=await navigator.mediaDevices.getUserMedia({
+    audio:false,video:{facingMode:{ideal:facing},width:{ideal:640},height:{ideal:480}}
+   });
+  }catch(e){
+   if(e.name==="NotAllowedError"||e.name==="SecurityError")throw e;
+   // 조건이 안 맞는 기기: 아무 카메라나
+   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
+  }
   video.srcObject=stream;
-  await video.play();
-  canvas.width=video.videoWidth;
-  canvas.height=video.videoHeight;
+  if(video.readyState<1)await new Promise(r=>video.onloadedmetadata=r);
+  try{await video.play()}catch(_){/* autoplay 막힘: muted라 보통 괜찮음 */}
+  canvas.width=video.videoWidth||640;
+  canvas.height=video.videoHeight||480;
   status("카메라 켜짐! 공 색을 선택해.");
   if(!looping){looping=true;requestAnimationFrame(loop)}
  }catch(e){
-  status("카메라 오류: "+e.message+
-   " | Safari에서 HTTPS 주소로 열고 권한을 허용해.");
+  status(cameraError(e));
  }
 }
 function switchCamera(){
