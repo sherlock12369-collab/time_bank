@@ -22,13 +22,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - run: node scripts/build-site.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          # 사이트에는 우리집 야구만 올린다. (타임뱅크 코드는 저장소에 남아 있고, 되돌리려면 scripts/build-site.mjs + _site로)
+          path: baseball
       - id: deployment
         uses: actions/deploy-pages@v4

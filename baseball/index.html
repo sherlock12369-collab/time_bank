@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>⚾ 우리집 야구</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101b2c;color:white;font-family:Arial,sans-serif}
+header{padding:14px;text-align:center;background:#192c45}
+h1{margin:0;font-size:24px}
+main{max-width:800px;margin:auto;padding:12px}
+.panel{background:#1c3049;border-radius:14px;padding:14px;margin:12px 0}
+button{background:#3174db;color:white;border:0;border-radius:9px;padding:12px;margin:4px;font-size:15px;font-weight:bold}
+button:active{background:#75a8f5}
+button:disabled{opacity:.5}
+.good{background:#16865e}
+.bad{background:#bb4c46}
+.gold{background:#b18416}
+#screen{position:relative;width:100%;background:#050505;border-radius:12px;overflow:hidden}
+video{display:block;width:100%;height:auto}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#status{font-size:14px;color:#b8d8ff;min-height:38px}
+.score{display:flex;justify-content:space-around;text-align:center;font-size:19px}
+.big{font-size:28px;font-weight:bold}
+.row{display:flex;flex-wrap:wrap;justify-content:center}
+small{color:#b9c9da}
+</style>
+</head>
+<body>
+<header><h1>⚾ 우리집 야구</h1></header>
+<main>
+<section class="panel">
+<div class="score">
+<div>원정<div class="big" id="away">0</div></div>
+<div><span id="inning">1회 초</span><br>
+<span id="count">B0 S0 O0</span></div>
+<div>홈<div class="big" id="home">0</div></div>
+</div>
+<p style="text-align:center" id="bases">◇ 1루　◇ 2루　◇ 3루</p>
+</section>
+
+<section class="panel">
+<div id="screen">
+<video id="video" autoplay muted playsinline></video>
+<canvas id="overlay"></canvas>
+</div>
+<p id="status">카메라 시작 버튼을 눌러!</p>
+<div class="row">
+<button onclick="startCamera()">📷 카메라 시작</button>
+<button onclick="switchCamera()">🔄 카메라 전환</button>
+</div>
+<div class="row">
+<button id="pick" onclick="setMode('color')">🎨 공 색 선택</button>
+<button onclick="setMode('zone')">🛏️ 베개 영역 지정</button>
+<button class="good" onclick="toggleTracking()" id="trackBtn">▶ 추적 시작</button>
+</div>
+<small>
+공 색 선택: 영상 속 공의 가운데를 터치<br>
+베개 영역 지정: 영상에서 베개를 대각선으로 드래그<br>
+흰색 공은 밝은 배경에서 잘 구별되지 않을 수 있어.
+</small>
+</section>
+
+<section class="panel">
+<h3>⚾ 판정</h3>
+<div class="row">
+<button onclick="ball()">볼</button>
+<button onclick="strike()">스트라이크</button>
+<button class="gold" onclick="batPillow()">배트 맞고 베개</button>
+<button onclick="foul()">파울</button>
+</div>
+<div class="row">
+<button class="good" onclick="hit(1)">1루타</button>
+<button class="good" onclick="hit(2)">2루타</button>
+<button class="good" onclick="hit(3)">3루타</button>
+<button class="good" onclick="hit(4)">홈런</button>
+</div>
+<div class="row">
+<button onclick="doorGrounder()">방문 땅볼 50:50</button>
+<button class="bad" onclick="out()">아웃</button>
+<button onclick="undo()">↩ 취소</button>
+</div>
+<p id="result">경기 준비!</p>
+</section>
+</main>
+
+<script>
+const video=document.getElementById("video");
+const canvas=document.getElementById("overlay");
+const ctx=canvas.getContext("2d");
+const work=document.createElement("canvas");
+const wc=work.getContext("2d",{willReadFrequently:true});
+work.width=160;work.height=120;
+
+let stream=null,facing="environment",mode="";
+let tracking=false,target=null,zone=null,drag=null;
+let lastPoint=null,lastInside=false,framesInside=0;
+let B=0,S=0,O=0,inning=1,top=true;
+let scores=[0,0],runners=[false,false,false];
+let history=[],cooldown=0,looping=false;
+
+function status(t){document.getElementById("status").textContent=t}
+function message(t){document.getElementById("result").textContent=t}
+function save(){
+ history.push(JSON.stringify({B,S,O,inning,top,scores,runners}));
+ if(history.length>30)history.shift();
+}
+function undo(){
+ if(!history.length)return;
+ const h=JSON.parse(history.pop());
+ B=h.B;S=h.S;O=h.O;inning=h.inning;top=h.top;scores=h.scores;runners=h.runners;
+ update();message("이전 판정 취소!");
+}
+function update(){
+ document.getElementById("away").textContent=scores[0];
+ document.getElementById("home").textContent=scores[1];
+ document.getElementById("inning").textContent=inning+"회 "+(top?"초":"말");
+ document.getElementById("count").textContent=`B${B} S${S} O${O}`;
+ document.getElementById("bases").textContent=
+  runners.map((x,i)=>(x?"◆":"◇")+(i+1)+"루").join("　");
+}
+function resetCount(){B=0;S=0}
+function changeSide(){
+ if(O<3)return;
+ O=0;resetCount();runners=[false,false,false];
+ if(top)top=false;else{top=true;inning++}
+ message("공수 교대!");
+}
+function strike(){
+ save();S++;
+ if(S>=3){O++;resetCount();message("삼진 아웃! ⚾");changeSide()}
+ else message("스트라이크!");
+ update();
+}
+function batPillow(){
+ strike();
+ message(S===0?"배트 맞고 베개! 삼진 또는 타석 종료!":
+ "배트 맞고 베개 → 스트라이크!");
+}
+function ball(){
+ save();B++;
+ if(B>=4){walk();resetCount();message("볼넷!")}
+ else message("볼!");
+ update();
+}
+function walk(){
+ if(runners[0]&&runners[1]&&runners[2])scores[top?0:1]++;
+ if(runners[0]&&runners[1])runners[2]=true;
+ if(runners[0])runners[1]=true;
+ runners[0]=true;
+}
+function foul(){
+ if(S<2){strike();message("파울! 스트라이크 하나 추가")}
+ else message("파울! 2스트라이크 유지");
+}
+function hit(n){
+ save();
+ let next=[false,false,false],runs=0;
+ for(let i=2;i>=0;i--){
+  if(!runners[i])continue;
+  let dest=i+n;
+  if(dest>=3)runs++;
+  else next[dest]=true;
+ }
+ if(n===4)runs++;
+ else next[n-1]=true;
+ scores[top?0:1]+=runs;
+ runners=next;resetCount();
+ message(n===4?"홈런! 🎉":n+"루타! "+(runs?runs+"점 득점!":""));
+ update();
+}
+function out(){
+ save();O++;resetCount();message("아웃!");
+ changeSide();update();
+}
+function doorGrounder(){
+ if(Math.random()<.5){hit(1);message("방문 땅볼 → 안타!")}
+ else if(O<=1&&runners.some(Boolean)){
+  save();O+=2;resetCount();runners[runners.findIndex(Boolean)]=false;
+  message("방문 땅볼 → 병살타!");
+  changeSide();update();
+ }else{out();message("방문 땅볼 → 땅볼 아웃!")}
+}
+
+async function startCamera(){
+ try{
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  stream=await navigator.mediaDevices.getUserMedia({
+   audio:false,video:{facingMode:{ideal:facing},width:{ideal:640},height:{ideal:480}}
+  });
+  video.srcObject=stream;
+  await video.play();
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
+  status("카메라 켜짐! 공 색을 선택해.");
+  if(!looping){looping=true;requestAnimationFrame(loop)}
+ }catch(e){
+  status("카메라 오류: "+e.message+
+   " | Safari에서 HTTPS 주소로 열고 권한을 허용해.");
+ }
+}
+function switchCamera(){
+ facing=facing==="environment"?"user":"environment";
+ tracking=false;
+ document.getElementById("trackBtn").textContent="▶ 추적 시작";
+ startCamera();
+}
+function setMode(m){
+ mode=m;
+ status(m==="color"?"영상 속 공 가운데를 터치해.":
+ "베개 영역의 왼쪽 위부터 오른쪽 아래까지 드래그해.");
+}
+function toggleTracking(){
+ if(!tracking&&!target){status("먼저 🎨 공 색 선택을 해 줘.");return}
+ tracking=!tracking;
+ document.getElementById("trackBtn").textContent=
+ tracking?"⏸ 추적 중지":"▶ 추적 시작";
+ status(tracking?"공 추적 중!":"추적 중지");
+}
+
+function position(e){
+ const r=canvas.getBoundingClientRect();
+ return {
+  x:(e.clientX-r.left)/r.width*canvas.width,
+  y:(e.clientY-r.top)/r.height*canvas.height
+ };
+}
+canvas.addEventListener("pointerdown",e=>{
+ const p=position(e);
+ if(mode==="zone"){drag=p;canvas.setPointerCapture(e.pointerId)}
+ if(mode==="color"){
+  if(!stream){status("먼저 📷 카메라 시작을 눌러.");return}
+  wc.drawImage(video,0,0,160,120);
+  let x=Math.min(159,Math.max(0,Math.floor(p.x/canvas.width*160)));
+  let y=Math.min(119,Math.max(0,Math.floor(p.y/canvas.height*120)));
+  let d=wc.getImageData(x,y,1,1).data;
+  target=[d[0],d[1],d[2]];
+  mode="";status("공 색 선택 완료! 추적 시작을 눌러.");
+ }
+});
+canvas.addEventListener("pointerup",e=>{
+ if(mode!=="zone"||!drag)return;
+ const p=position(e);
+ zone={
+  x:Math.min(drag.x,p.x),y:Math.min(drag.y,p.y),
+  w:Math.abs(p.x-drag.x),h:Math.abs(p.y-drag.y)
+ };
+ drag=null;mode="";
+ status("베개 영역 설정 완료!");
+});
+function loop(){
+ requestAnimationFrame(loop);
+ if(!stream||video.readyState<2)return;
+ if(canvas.width!==video.videoWidth){
+  canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+ }
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.font="bold 20px Arial";
+ if(zone){
+  ctx.strokeStyle="#00ff8c";ctx.lineWidth=4;
+  ctx.strokeRect(zone.x,zone.y,zone.w,zone.h);
+  ctx.fillStyle="#00ff8c";ctx.fillText("베개",zone.x+5,zone.y+22);
+ }
+ if(tracking&&target){
+  wc.drawImage(video,0,0,160,120);
+  const data=wc.getImageData(0,0,160,120).data;
+  let sx=0,sy=0,count=0;
+  const threshold=52;
+  for(let y=0;y<120;y+=2){
+   for(let x=0;x<160;x+=2){
+    let k=(y*160+x)*4;
+    let dist=Math.hypot(
+     data[k]-target[0],
+     data[k+1]-target[1],
+     data[k+2]-target[2]
+    );
+    if(dist<threshold){sx+=x;sy+=y;count++}
+   }
+  }
+  if(count>5&&count<2000){
+   let x=sx/count/160*canvas.width;
+   let y=sy/count/120*canvas.height;
+   if(lastPoint){
+    ctx.strokeStyle="#ffe34d";ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(lastPoint.x,lastPoint.y);
+    ctx.lineTo(x,y);ctx.stroke();
+   }
+   ctx.beginPath();ctx.arc(x,y,13,0,Math.PI*2);
+   ctx.strokeStyle="#ffdf00";ctx.lineWidth=4;ctx.stroke();
+   ctx.fillStyle="#ffe34d";ctx.fillText("⚾",x+16,y-10);
+   lastPoint={x,y};
+   let inside=zone&&x>=zone.x&&x<=zone.x+zone.w&&
+    y>=zone.y&&y<=zone.y+zone.h;
+   framesInside=inside?framesInside+1:0;
+   if(inside&&!lastInside&&framesInside>=1&&
+      Date.now()-cooldown>2200){
+    cooldown=Date.now();
+    strike();
+    message("자동 감지: 공이 베개 영역에 들어옴 → 스트라이크");
+   }
+   lastInside=!!inside;
+  }else{
+   lastPoint=null;lastInside=false;
+  }
+ }
+}
+
+update();
+</script>
+</body>
+</html>
